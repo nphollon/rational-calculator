@@ -1,11 +1,9 @@
 module Main exposing (main)
 
-import Char exposing (KeyCode)
-import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events as Evt
-import Keyboard
+import Keyboard.Combo as KeyCombo exposing (KeyCombo)
 import Rational as Q exposing (Rational)
 
 
@@ -22,6 +20,7 @@ main =
 type alias Model =
     { stack : List Rational
     , head : Int
+    , keys : KeyCombo.Model Action
     }
 
 
@@ -40,40 +39,41 @@ type Action
     | RollUp
     | RollDown
     | Swap
-    | DoNothing
+    | KeyComboMsg KeyCombo.Msg
 
 
 init : ( Model, Cmd Action )
 init =
     { stack = []
     , head = 0
+    , keys = KeyCombo.init KeyComboMsg keyMap
     }
         ! []
 
 
 subscriptions : Model -> Sub Action
 subscriptions model =
-    Keyboard.downs <|
-        \keyCode ->
-            Dict.get keyCode keyMap
-                |> Maybe.withDefault DoNothing
+    KeyCombo.subscriptions model.keys
 
 
-keyMap : Dict KeyCode Action
+keyMap : List (KeyCombo Action)
 keyMap =
-    Dict.fromList
-        [ ( Char.toCode '0', Digit 0 )
-        , ( Char.toCode '1', Digit 1 )
-        , ( Char.toCode '2', Digit 2 )
-        , ( Char.toCode '3', Digit 3 )
-        , ( Char.toCode '4', Digit 4 )
-        , ( Char.toCode '5', Digit 5 )
-        , ( Char.toCode '6', Digit 6 )
-        , ( Char.toCode '7', Digit 7 )
-        , ( Char.toCode '8', Digit 8 )
-        , ( Char.toCode '9', Digit 9 )
-        , ( 13, Push )
-        ]
+    [ KeyCombo.combo1 KeyCombo.zero (Digit 0)
+    , KeyCombo.combo1 KeyCombo.one (Digit 1)
+    , KeyCombo.combo1 KeyCombo.two (Digit 2)
+    , KeyCombo.combo1 KeyCombo.three (Digit 3)
+    , KeyCombo.combo1 KeyCombo.four (Digit 4)
+    , KeyCombo.combo1 KeyCombo.five (Digit 5)
+    , KeyCombo.combo1 KeyCombo.six (Digit 6)
+    , KeyCombo.combo1 KeyCombo.seven (Digit 7)
+    , KeyCombo.combo1 KeyCombo.nine (Digit 9)
+    , KeyCombo.combo2 ( KeyCombo.shift, KeyCombo.equals ) Add
+    , KeyCombo.combo1 KeyCombo.minus Subtract
+    , KeyCombo.combo2 ( KeyCombo.shift, KeyCombo.eight ) Multiply
+    , KeyCombo.combo1 KeyCombo.semicolon Divide
+    , KeyCombo.combo1 KeyCombo.enter Push
+    , KeyCombo.combo1 KeyCombo.eight (Digit 8)
+    ]
 
 
 update : Action -> Model -> ( Model, Cmd Action )
@@ -121,8 +121,8 @@ update action model =
         Reciprocate ->
             unary (Q.divide Q.one) model ! []
 
-        DoNothing ->
-            model ! []
+        KeyComboMsg msg ->
+            { model | keys = KeyCombo.update msg model.keys } ! []
 
 
 addDigit : Int -> Model -> Model
